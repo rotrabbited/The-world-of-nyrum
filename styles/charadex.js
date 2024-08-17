@@ -1,25 +1,35 @@
 /* ==================================================================== */
-/* Debug
-=======================================================================  /
-
-    This is for me to help you!
-    
-
-======================================================================= */
-const cheeDebug = {
-
-}
-
-
-
-
-/* ==================================================================== */
 /* Load Header and Footer
 ======================================================================= */
 $(function () {
     $(".load-html").each(function () { $(this).load(this.dataset.source) });
 });
 
+
+
+
+/* ================================================================ */
+/* QOL Funcs
+/* ================================================================ */
+
+    // Just makes everything easier to compare
+    const scrub = (key) => {
+        return !key ? key : key.toString().toLowerCase().replace(/\s/g, "");
+    };
+
+    // Makes your params into options
+    const addFilterOptions = (opt) => {
+        let select = [];
+        opt.forEach((v) => {select.push($("<option></option>").val(scrub(v)).html(v))});
+        return select;
+    };
+
+    const loadPage = () => {
+        setTimeout(function () {
+            $('#loading').hide();
+            $('.softload').addClass('active');
+        }, 2000);
+    };
 
 
 /* ==================================================================== */
@@ -38,13 +48,9 @@ $(function () {
         fullUrl: new URL(window.location.href).href,
         params: new URLSearchParams(window.location.search),
 
-        set pageUrl(page) {
-            return `${this.fullUrl.replace(/\/[^\/]+$/, "")}/${page}`;
-        },
+        set pageUrl(page) {return `${this.fullUrl.replace(/\/[^\/]+$/, "")}/${page}`},
 
-        get noParams() {
-            return this.fullUrl.split('?')[0];
-        },
+        get noParams() {return this.fullUrl.split('?')[0]},
 
         addParams(url, obj) {
 
@@ -66,110 +72,36 @@ $(function () {
 
 /* ==================================================================== */
 /* Get Sheet Data
-=======================================================================  /
-
-    
-    
-
 ======================================================================= */
 
     const fetchSheet = async (opt) => {
 
-        // Some checks
-        if (!opt.sheetID) return alert('Sheet ID not added.');
-        if (!opt.sheetPage) return alert('There is no sheet page.');
+        const parser = new PublicGoogleSheetsParser();
+        const dex = await parser.parse(opt.sheetID, opt.sheetPage).then((arr) => {
 
-        // Build the sheet link and fetch the data
-        const sheetUrl = `https://docs.google.com/spreadsheets/d/${opt.sheetID}/gviz/tq?tqx=out:json&headers=1&tq=WHERE A IS NOT NULL&sheet=${opt.sheetPage}`;
+            let scrubObj = [];
 
-        // Try to fetch the data
-        const sheetData = await fetch(sheetUrl).then((response) => {
-            if (response.ok) return response.text();
-            Promise.reject(response);
-        }).catch((e) => {
-            if (e) return false;
-        });
-
-        // If there's data, return it
-        if (sheetData || !['[]', '{}'].includes(sheetData)) return scrubData(sheetData, opt);
-
-        // Else let them know something's wrong
-        alert('No sheet information was found. Please make sure your sheet is public.');
-        return false;
-
-    };
-
-
-    const scrubData = (data, opt) => {
-
-        // Parse through it and remove the nasty bits
-        const parsedJSON = JSON.parse(data.substring(47).slice(0, -2));
-
-        // Grab column headers
-        const col = [];
-        if (parsedJSON.table.cols[0].label) {
-            parsedJSON.table.cols.forEach((headers) => { if (headers.label) col.push(scrub(headers.label)); });
-        }
-
-        // Scrubs columns and puts them in a readable object
-        const scrubbedData = [];
-        parsedJSON.table.rows.forEach((info, num) => {
-            const row = {};
-            const isBoolean = val => 'boolean' === typeof val;
-            col.forEach((ele, ind) => {
-                row[ele] = info.c[ind] != null ? info.c[ind].f != null && !isBoolean(info.c[ind].v) ? info.c[ind].f : info.c[ind].v != null ? info.c[ind].v : "" : "";
+            Object.entries(arr).forEach((i, obj) => {
+                let newObj = {};
+                if (Object.keys(arr[obj]).length > 1 && !arr[obj]['Hide']) {
+                    Object.entries(arr[obj]).forEach(([k, v]) => {newObj[scrub(k)] = v});
+                    scrubObj.push(newObj);
+                }
             });
-            scrubbedData.push(row);
-        });
-
-        // Get rid of anything that needs to be hidden
-        let publicData = scrubbedData.filter((i) => {
-            return i['hide'] !== true;
-        });
-
-        // Add the card link
-        if (opt.fullDex && opt.pageKey) {
-            for (var i in publicData) {
-                publicData[i].cardlink = createUrl.addParams(createUrl.noParams,{[opt.pageKey]:publicData[i][opt.pageKey]});
+            
+            if (opt.fullDex && opt.pageKey) {
+                for (var i in scrubObj) {
+                    scrubObj[i].cardlink = createUrl.addParams(createUrl.noParams,{[opt.pageKey]:scrubObj[i][opt.pageKey]});
+                }
             }
-        }
 
-        return publicData;
+            return scrubObj;
+
+        });
+
+        return dex;
 
     }
-
-
-
-/* ================================================================ */
-/* QOL Funcs
-/* ================================================================ */
-
-    // Just makes everything easier to compare
-    const scrub = (key) => {
-        return !key ? key : key.toString().toLowerCase().replace(/\s/g, "");
-    };
-
-    // Makes your params into options
-    const addFilterOptions = (opt) => {
-        let select = [];
-        opt.forEach((v) => {select.push($("<option></option>").val(scrub(v)).html(v))});
-        return select;
-    };
-
-
-    const keyValCheck = (k, v) => {
-        return scrub(k) === scrub(v);
-    }
-
-    const addAll = (key) => {
-        key.unshift("All")
-        return key;
-    };
-
-    const loadPage = () => {
-        $('#loading').hide();
-        $('.softload').addClass('active');
-    };
 
 
 
@@ -179,9 +111,9 @@ $(function () {
 /* into a special key so you dont have to
 /* ================================================================ */
     
-    let createListKeys = (arr, card = false) => {
-
-        let itemArray = card ? Object.keys(arr) : Object.keys(arr[0]);
+    const createListKeys = (arr) => {
+        
+        let itemArray = Object.keys(arr[0]);
         let itemArrayLength = itemArray.length;
 
         let newArray = [];
@@ -213,11 +145,15 @@ $(function () {
             valueNames: createListKeys(card ? opt.card : opt.arr),
         }
 
-        if (card && opt.search) {
+        if (opt.listClass) {
+            options.listClass = opt.listClass;
+        }
+
+        if (!card && opt.search) {
             options.searchColumns = opt.searchFilterParams;
         }
 
-        if (card && opt.pagination) {
+        if (!card && opt.pagination) {
             options.page = opt.itemAmount;
             options.pagination = [{
                 innerWindow: 1,
@@ -230,7 +166,7 @@ $(function () {
 
         return options;
 
-    }
+    };
 
 
 /* ================================================================ */
@@ -246,7 +182,7 @@ $(function () {
 
         if (opt.arr.length > opt.itemAmount) $('#charadex-pagination').show()
 
-    }
+    };
 
 
 
@@ -327,7 +263,7 @@ $(function () {
 /* gon b a lil funkii
 /* ================================================================ */
 
-    let createSearch = (dex, opt) => {
+    const createSearch = (dex, opt) => {
 
         if (!opt.search) return;
 
@@ -359,7 +295,7 @@ $(function () {
 /* Filter Gallery
 /* ================================================================ */
 
-    let filterGallery = (opt) => {
+    const filterGallery = (opt) => {
         
         let filters = Object.fromEntries(opt.params);
 
@@ -418,6 +354,27 @@ $(function () {
 /* use it later
 /* ================================================================ */
 
+    const fetchDexArr = async (v) => {
+
+        // Grab our options
+        const opt = charadexOptions.syncOptions(v);
+        opt.params = createUrl.params;
+
+        // Some checks
+        if (!opt.sheetID) return alert('Sheet ID not added.');
+        if (opt.fillDex && !opt.sheetPage) return alert('Sheet page not added.');
+    
+        // Grab the information, if none, stop everything
+        let sheetArr = await fetchSheet(opt);
+        if (!sheetArr) return;
+    
+        // Now we're going to add the Array to our options
+        opt.arr = sheetArr;
+
+        return opt;
+
+    };
+
     const createGallery = (opt) => {
 
         // Create our parameter searches
@@ -436,6 +393,9 @@ $(function () {
         // Make the search nyoom
         createSearch(dex, opt);
 
+        // Load Page
+        loadPage();
+
         // Return everything
         return opt;
     
@@ -451,23 +411,54 @@ $(function () {
         // everything bc we are good boys
         opt.card = opt.arr.filter((i) => scrub(i[opt.pageKey]) === scrub(opt.params.get(opt.pageKey)));
 
-        // List.js options
-        let itemOptions = {
-            valueNames: createListKeys(opt.card, true),
-            item: 'charadex-card',
-        };
-
         // Render card
-        let dex = new List(
-            opt.listContainer, 
-            createListOptions(opt, true), 
-            opt.card
-        );
+        let dex = new List(opt.listContainer,createListOptions(opt, true),opt.card);
+
+        // Load Page
+        loadPage();
 
         // Return everything
         return opt;
 
     }
+    
+
+
+/* ==================================================================== */
+/* General Charadex
+======================================================================= */
+
+    const charadex = async (v) => {
+
+        // Get our arr
+        let opt = await fetchDexArr(v);
+
+        // If the params has the key, make the card
+        if (opt.params.has(opt.pageKey)) return createCard(opt);
+        
+        // Else make a gallery
+        return createGallery(opt);
+
+    };
+    
+
+    
+/* ==================================================================== */
+/* Masterlist Only
+======================================================================= */
+
+    const masterlist = async (v) => {
+
+        let dex = await fetchDexArr(v);
+
+        // If the params has the key, make the card
+        if (opt.params.has(opt.pageKey)) return createCard(opt);
+        
+        // Else make a gallery
+        return createGallery(opt);
+
+    };
+
 
 
 
@@ -475,94 +466,33 @@ $(function () {
 /* Get a card's log
 /* ================================================================ */
 
-    let getLog = (log, item, key = 'id') => {
-        if ($("#log-table").length != 0) {
+let getLog = (log, item, key = 'id') => {
+    if ($("#log-table").length != 0) {
 
-            let logArr = [];
-            log.forEach((i) => {
-                if (i[key].toLowerCase() === item[key].toLowerCase()) {
-                    let newLog = {
-                        timestamp: i.timestamp,
-                        reason: i.reason,
-                    };
-                    logArr.push(newLog);
+        let logArr = [];
+        log.forEach((i) => {
+            if (i[key].toLowerCase() === item[key].toLowerCase()) {
+                let newLog = {
+                    timestamp: i.timestamp,
+                    reason: i.reason,
                 };
-            });
+                logArr.push(newLog);
+            };
+        });
 
-            // Create Rows
-            let rows = [];
-            logArr.forEach((i) => {
-                let HTML = $("#log-entry").clone();
-                HTML.find(".timestamp").html(i.timestamp);
-                HTML.find(".reason").html(i.reason);
-                rows.push(HTML);
-            });
+        // Create Rows
+        let rows = [];
+        logArr.forEach((i) => {
+            let HTML = $("#log-entry").clone();
+            HTML.find(".timestamp").html(i.timestamp);
+            HTML.find(".reason").html(i.reason);
+            rows.push(HTML);
+        });
 
-            $("#log-table").html(rows);
-
-        }
-    }
-    
-    
-    
-/* ==================================================================== */
-/* Masterlist Only
-======================================================================= */
-
-    const charadex = async (v) => {
-
-        // Grab our options
-        const opt = charadexOptions.syncOptions(v);
-        opt.params = createUrl.params;
-    
-        // Grab the information, if none, stop everything
-        let sheetArr = await fetchSheet(opt);
-        if (!sheetArr) return;
-    
-        // Now we're going to add the Array to our options so 
-        // we can access data way easier
-        opt.arr = sheetArr;
-    
-        // Build based on the page info
-        if (!opt.params.has(opt.pageKey)) {
-            let gallery = createGallery(opt)
-        } else { 
-            let card = createCard(opt);
-        }
-    
-    };
-
-    
-/* ==================================================================== */
-/* Masterlist Only
-======================================================================= */
-const masterlist = async (v) => {
-
-    // Grab our options
-    const opt = charadexOptions.syncOptions(v);
-    opt.params = createUrl.params;
-
-    // Grab the information, if none, stop everything
-    let sheetArr = await fetchSheet(opt);
-    if (!sheetArr) return;
-
-    // Now we're going to add the Array to our options so 
-    // we can access data way easier
-    opt.arr = sheetArr;
-
-    // If it's a gallery, build the gallery
-    if (!opt.params.has(opt.pageKey)) {
-
-        let gallery = createGallery(opt)
-
-    } else { 
-        
-        let card = createCard(opt);
+        $("#log-table").html(rows);
 
     }
-
-};
-
+}
 
 /* ==================================================================== */
 /* Inventories

@@ -19,10 +19,6 @@ const charadexOptions = {
         sheetID: "1GwgfLizD3HQCieGia6di-TfU4E3EipT9Jb0BDZQwNak",
         sheetPage: 'masterlist',
 
-        // If there's a log nyoom
-        log: false,
-        logPage: 'masterlist log',
-
         // Dex Type
         // Full dex means a dex with a gallery and a single
         // card - a full dex alwys needs a page key
@@ -103,10 +99,6 @@ const charadexOptions = {
         return {
 
             sheetPage: this.pages.masterlist,
-
-            log: true,
-            logPage: this.pages.masterlistLog,
-
             pageKey: 'design',
 
             pagination: true,
@@ -145,7 +137,7 @@ const charadexOptions = {
 
             filters: true,
             filterOptions: {
-                'Rarity': ['All', 'Common', 'Uncommon', 'Rare'],
+                'Rarity': ['All', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Mythic'],
             },
             
             search: true,
@@ -161,12 +153,15 @@ const charadexOptions = {
         return {
 
             sheetPage: this.pages.inventory,
-            itemSheetPage: this.pages.items,
-            logSheetPage: this.pages.inventoryLog,
+            pageKey: 'username',
 
+            itemSheetPage: this.pages.items,
+
+            pagination: true,
             itemAmount: 24,
             sortTypes: ['Currency', 'MYO Slot', 'Pet', 'Trait', 'Misc'],
 
+            search: true,
             searchFilterParams: ['Username'],
 
         }
@@ -179,10 +174,13 @@ const charadexOptions = {
         return {
 
             sheetPage: this.pages,
+            pageKey: 'id',
 
+            pagination: true,
             itemAmount: 24,
             itemOrder: "desc",
 
+            search: true,
             searchFilterParams: ['Title'],
 
         }
@@ -194,14 +192,19 @@ const charadexOptions = {
     get traits() {
         return {
 
-            sheetPage: this.pages,
+            sheetPage: this.pages.traits,
+            pageKey: 'trait',
 
             itemAmount: 24,
             itemOrder: "asc",
-
-            filterColumn: 'Rarity',
+            
+            filters: true,
+            filterOptions: {
+                'Rarity': ['All', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Mythic'],
+            },
+            
+            search: true,
             searchFilterParams: ['Trait'],
-            fauxFolderColumn: 'Type',
 
         }
     },
@@ -212,7 +215,8 @@ const charadexOptions = {
     get staff() {
         return {
 
-            sheetPage: this.pages,
+            sheetPage: this.pages.staff,
+            fullDex: false,
 
         }
     },
