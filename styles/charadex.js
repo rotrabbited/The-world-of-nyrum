@@ -1,11 +1,10 @@
 /* ==================================================================== */
 /* Load Header and Footer
 ======================================================================= */
-$(function () {
-    $(".load-html").each(function () { $(this).load(this.dataset.source) });
-});
 
-
+    $(function () {
+        $(".load-html").each(function () { $(this).load(this.dataset.source) });
+    });
 
 
 /* ================================================================ */
@@ -28,8 +27,9 @@ $(function () {
         setTimeout(function () {
             $('#loading').hide();
             $('.softload').addClass('active');
-        }, 2000);
+        }, 1500);
     };
+
 
 
 /* ==================================================================== */
@@ -169,6 +169,7 @@ $(function () {
     };
 
 
+
 /* ================================================================ */
 /* Pagination
 /* ================================================================ */
@@ -259,8 +260,6 @@ $(function () {
 
 /* ================================================================ */
 /* Search Filter
-/* Since the search is a built in function for List.JS it's
-/* gon b a lil funkii
 /* ================================================================ */
 
     const createSearch = (dex, opt) => {
@@ -296,7 +295,7 @@ $(function () {
 /* ================================================================ */
 
     const filterGallery = (opt) => {
-        
+
         let filters = Object.fromEntries(opt.params);
 
         let arr = opt.arr.filter((i) => {
@@ -320,7 +319,7 @@ $(function () {
     
         let key = opt.pageKey;
         let arr = opt.arr;
-        let index = arr.map(function (i) {return i[key]}).indexOf(opt.arr[0][key]);
+        let index = arr.map((i) => scrub(i[key])).indexOf(opt.params.get(key));
 
         let leftItem = arr[index - 1] ? arr[index - 1][key] : false;
         let rightItem = arr[index + 1] ? arr[index + 1][key] : false;
@@ -435,9 +434,10 @@ $(function () {
 
         // If the params has the key, make the card
         if (opt.params.has(opt.pageKey)) return createCard(opt);
+
+        // Else return big gallery
+        else return createGallery(opt);
         
-        // Else make a gallery
-        return createGallery(opt);
 
     };
     
@@ -452,47 +452,38 @@ $(function () {
         let dex = await fetchDexArr(v);
 
         // If the params has the key, make the card
-        if (opt.params.has(opt.pageKey)) return createCard(opt);
+        if (dex.params.has(dex.pageKey)) {
+            
+            let cardOpt = createCard(dex);
+            let card = cardOpt.card[0];
+            
+            let logSettings = {
+                fullDex: false,
+                pagination: false,
+                sheetPage: 'masterlist log',
+                listContainer: 'logs',
+                listItemGallery: 'row-log',
+                listClass: 'list-log',
+            }
+
+            let log = await fetchDexArr(logSettings);
+            
+            let logArr = log.arr;
+            let newArr = [];
+            for (let i in logArr) {if (logArr[i].id === card.id) newArr.push(logArr[i])}
+            log.arr = newArr;
+            
+            if (log.arr.length > 0) createGallery(log);
+
+        } else {
+            // Else make a gallery
+            return createGallery(dex);
+        }
         
-        // Else make a gallery
-        return createGallery(opt);
 
     };
 
 
-
-
-/* ================================================================ */
-/* Get a card's log
-/* ================================================================ */
-
-let getLog = (log, item, key = 'id') => {
-    if ($("#log-table").length != 0) {
-
-        let logArr = [];
-        log.forEach((i) => {
-            if (i[key].toLowerCase() === item[key].toLowerCase()) {
-                let newLog = {
-                    timestamp: i.timestamp,
-                    reason: i.reason,
-                };
-                logArr.push(newLog);
-            };
-        });
-
-        // Create Rows
-        let rows = [];
-        logArr.forEach((i) => {
-            let HTML = $("#log-entry").clone();
-            HTML.find(".timestamp").html(i.timestamp);
-            HTML.find(".reason").html(i.reason);
-            rows.push(HTML);
-        });
-
-        $("#log-table").html(rows);
-
-    }
-}
 
 /* ==================================================================== */
 /* Inventories
@@ -729,9 +720,3 @@ const frontPage = (options) => {
     }; addDesigns();
 
 };
-
-
-/* ==================================================================== */
-/* Softload pages
-======================================================================= */
-$(window).on('pageshow', function () { loadPage() });

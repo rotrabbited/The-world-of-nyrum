@@ -51,7 +51,7 @@ const charadexOptions = {
         listContainer: 'charadex-gallery',
         listItemGallery: 'charadex-entries',
         listItemSingle: 'charadex-card',
-        listClass: '',
+        listClass: 'charadex-list',
 
     },
 
