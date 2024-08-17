@@ -19,6 +19,10 @@ const charadexOptions = {
         sheetID: "1GwgfLizD3HQCieGia6di-TfU4E3EipT9Jb0BDZQwNak",
         sheetPage: 'masterlist',
 
+        // If there's a log nyoom
+        log: false,
+        logPage: 'masterlist log',
+
         // Dex Type
         // Full dex means a dex with a gallery and a single
         // card - a full dex alwys needs a page key
@@ -45,12 +49,13 @@ const charadexOptions = {
 
         // Search
         search: false,
-        searchParams: {},
+        searchParams: [],
 
         // List.js
-        listItem: 'charadex-entries',
+        listContainer: 'charadex-gallery',
+        listItemGallery: 'charadex-entries',
+        listItemSingle: 'charadex-card',
         listClass: '',
-        listContainer: 'charadex-gallery'
 
     },
 
@@ -98,6 +103,8 @@ const charadexOptions = {
         return {
 
             sheetPage: this.pages.masterlist,
+
+            log: true,
             logPage: this.pages.masterlistLog,
 
             pageKey: 'design',
@@ -106,14 +113,15 @@ const charadexOptions = {
             itemAmount: 12,
             itemOrder: "asc",
 
-            fauxFolders: true,
+            fauxFolders: false,
             fauxFoldersCol: {
                 'Species' : ['All', 'Dog', 'Cat', 'Bunny']
             },
 
             filters: true,
             filterOptions: {
-                'Design Type': ['All', 'Official', 'Guest', 'MYO']
+                'Design Type': ['All', 'Official Design', 'Guest Design', 'MYO Slot'],
+                'Species' : ['All', 'Dog', 'Cat', 'Bunny']
             },
 
             search: true,
@@ -129,13 +137,19 @@ const charadexOptions = {
         return {
 
             sheetPage: this.pages.items,
+            pageKey: 'item',
 
+            pagination: true,
             itemAmount: 24,
             itemOrder: "asc",
 
-            filterColumn: 'Rarity',
-            searchFilterParams: ['Item'],
-            fauxFolderColumn: 'Type',
+            filters: true,
+            filterOptions: {
+                'Rarity': ['All', 'Common', 'Uncommon', 'Rare'],
+            },
+            
+            search: true,
+            searchParams: ['Item'],
 
         }
     },

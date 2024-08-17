@@ -146,7 +146,7 @@ $(function () {
 
     // Just makes everything easier to compare
     const scrub = (key) => {
-        return key.toString().toLowerCase().replace(/\s/g, "");
+        return !key ? key : key.toString().toLowerCase().replace(/\s/g, "");
     };
 
     // Makes your params into options
@@ -206,18 +206,18 @@ $(function () {
 /* Because we don't want to repeat them everytime
 /* ================================================================ */
 
-    const createListOptions = (opt) => {
+    const createListOptions = (opt, card = false) => {
 
         let options = {
-            item: opt.listItem,
-            valueNames: createListKeys(opt.arr),
+            item: card ? opt.listItemSingle : opt.listItemGallery,
+            valueNames: createListKeys(card ? opt.card : opt.arr),
         }
 
-        if (opt.search) {
+        if (card && opt.search) {
             options.searchColumns = opt.searchFilterParams;
         }
 
-        if (opt.pagination) {
+        if (card && opt.pagination) {
             options.page = opt.itemAmount;
             options.pagination = [{
                 innerWindow: 1,
@@ -237,7 +237,9 @@ $(function () {
 /* Pagination
 /* ================================================================ */
 
-    const showPagination = (opt) => {
+    const createPagination = (opt) => {
+
+        if (!opt.pagination) return;
 
         $('.btn-next').on('click', () => {$('.pagination .active').next().children('a')[0].click()})
         $('.btn-prev').on('click', () => {$('.pagination .active').prev().children('a')[0].click()})
@@ -253,6 +255,8 @@ $(function () {
 /* ================================================================ */
 
     const createFauxFolders = (opt) => {
+
+        if (!opt.fauxFolders) return;
 
         // Pull our keys and array
         let key = Object.keys(opt.fauxFoldersCol)[0];
@@ -270,52 +274,52 @@ $(function () {
         // Append them to the row and show them 
         $('#filter-buttons .row').append(buttons);
         $('#filter-buttons').show();
-        
-        // Attempt to filter the array
-        let params = createUrl.params;
-        let filArr = opt.arr.filter((i) => scrub(i[key]) === params.get(key));
-
-        // If it filters everything out we're just going to
-        // return the original array
-        return filArr.length ? filArr : opt.arr;
 
     };
 
+
+    
 /* ================================================================ */
 /* Custom Filter
 /* ================================================================ */
 
     const createfilterSelections = (opt) => {
 
-        /*$('.search-params').each(function () {
+        if (!opt.filters) return;
+
+        let filters = opt.filterOptions;
+        let newFilters = [];
+        for (let k in filters) {
+            let filCol = $("#filter").parent().clone();
+            filCol.find('label').text(k);
+            filCol.find('#filter')
+            .addClass(`gallery-filter`)
+            .attr('name', scrub(k))
+            .append(addFilterOptions(opt.filterOptions[k]));
+            newFilters.push(filCol);
+        }
+
+        $("#charadex-filters").find(".row").prepend(newFilters);
+        $(".gallery-filter").parent().show();
+
+        // Attempt to filter the array
+        $('.gallery-filter').each(function () {
             $(this).on('change', function () {
                 if ($(this).val()) {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set($(this).attr('name'), $(this).val());
-                    window.location.search = urlParams;
-
+                    opt.params.set($(this).attr('name'), $(this).val());
+                    window.location.search = opt.params;
                 }
             });
         });
 
-        let filter = Object.fromEntries(new URLSearchParams(location.search));
-
-        for (var key in filter) {
-            $(`.search-params[name='${key}']`).val(filter[key]).prop('selected', true);
+        let filter = Object.fromEntries(opt.params);
+        for (var k in filter) {
+            $(`.gallery-filter[name='${k}']`).val(filter[k]).prop('selected', true);
         }
-
-        arr = arr.filter(function (item) {
-            for (var key in filter) {
-                if (item[key] === undefined || scrub(item[key]) != scrub(filter[key]) && scrub(filter[key]) !== "all")
-                    return false;
-            }
-            return true;
-        });
-
-        return arr;*/
 
     }
     
+
 
 /* ================================================================ */
 /* Search Filter
@@ -324,6 +328,8 @@ $(function () {
 /* ================================================================ */
 
     let createSearch = (dex, opt) => {
+
+        if (!opt.search) return;
 
         let arr = opt.searchParams.map(function(v){return scrub(v)});
 
@@ -350,6 +356,25 @@ $(function () {
 
 
 /* ================================================================ */
+/* Filter Gallery
+/* ================================================================ */
+
+    let filterGallery = (opt) => {
+        
+        let filters = Object.fromEntries(opt.params);
+
+        let arr = opt.arr.filter((i) => {
+            for (let k in filters) if (scrub(i[k]) === undefined || scrub(i[k]) != filters[k]) return false;
+            return true;
+        });
+
+        return arr.length ? arr : opt.arr;
+
+    }
+
+
+
+/* ================================================================ */
 /* Prev and Next Links
 /* ================================================================ */
 
@@ -357,14 +382,16 @@ $(function () {
     
         if ($("#entryPrev").length == 0) return;
     
-        let index = arr.map(function (i) { return i[key] }).indexOf(card[key]);
-    
+        let key = opt.pageKey;
+        let arr = opt.arr;
+        let index = arr.map(function (i) {return i[key]}).indexOf(opt.arr[0][key]);
+
         let leftItem = arr[index - 1] ? arr[index - 1][key] : false;
         let rightItem = arr[index + 1] ? arr[index + 1][key] : false;
-    
+  
         // Prev
         if (leftItem) {
-            $("#entryPrev").attr("href", addUrlParams(key, leftItem));
+            $("#entryPrev").attr("href", createUrl.addParams(createUrl.noParams, {[key]:leftItem}));
             $("#entryPrev span").text(leftItem);
         } else {
             $("#entryPrev").hide();
@@ -372,7 +399,7 @@ $(function () {
     
         // Next
         if (rightItem) {
-            $("#entryNext").attr("href", addUrlParams(key, rightItem));
+            $("#entryNext").attr("href", createUrl.addParams(createUrl.noParams, {[key]:rightItem}));
             $("#entryNext span").text(rightItem);
         } else {
             $("#entryNext").hide();
@@ -384,24 +411,62 @@ $(function () {
     };
 
 
+
 /* ================================================================ */
-/* Create gallery based on prefence
+/* Create gallery or card based on preferences
+/* They'll also return all your info in case you need to 
+/* use it later
 /* ================================================================ */
 
     const createGallery = (opt) => {
 
-        // Create faux folders if needed
-        if (opt.fauxFolders) opt.arr = createFauxFolders(opt);
+        // Create our parameter searches
+        createFauxFolders(opt);
+        createfilterSelections(opt);
 
-        // Create pagination if needed
-        if (opt.pagination) showPagination(opt);
+        // Filter the gallery based on those
+        opt.arr = filterGallery(opt);
 
-        // Create Gallery
+        // Create our pagination
+        createPagination(opt);
+
+        // Initiallize the dex
         let dex = new List(opt.listContainer, createListOptions(opt), opt.arr);
+
+        // Make the search nyoom
+        createSearch(dex, opt);
+
+        // Return everything
+        return opt;
     
-        // If there's a search, let it search
-        if (opt.search) createSearch(dex, opt);
+    }
+
     
+    const createCard = (opt) => {
+
+        // Render the prev/next links on profiles
+        prevNextLinks(opt);
+
+        // We want to assign to a card instead of overwriting
+        // everything bc we are good boys
+        opt.card = opt.arr.filter((i) => scrub(i[opt.pageKey]) === scrub(opt.params.get(opt.pageKey)));
+
+        // List.js options
+        let itemOptions = {
+            valueNames: createListKeys(opt.card, true),
+            item: 'charadex-card',
+        };
+
+        // Render card
+        let dex = new List(
+            opt.listContainer, 
+            createListOptions(opt, true), 
+            opt.card
+        );
+
+        // Return everything
+        return opt;
+
     }
 
 
@@ -437,7 +502,35 @@ $(function () {
 
         }
     }
+    
+    
+    
+/* ==================================================================== */
+/* Masterlist Only
+======================================================================= */
 
+    const charadex = async (v) => {
+
+        // Grab our options
+        const opt = charadexOptions.syncOptions(v);
+        opt.params = createUrl.params;
+    
+        // Grab the information, if none, stop everything
+        let sheetArr = await fetchSheet(opt);
+        if (!sheetArr) return;
+    
+        // Now we're going to add the Array to our options so 
+        // we can access data way easier
+        opt.arr = sheetArr;
+    
+        // Build based on the page info
+        if (!opt.params.has(opt.pageKey)) {
+            let gallery = createGallery(opt)
+        } else { 
+            let card = createCard(opt);
+        }
+    
+    };
 
     
 /* ==================================================================== */
@@ -447,6 +540,7 @@ const masterlist = async (v) => {
 
     // Grab our options
     const opt = charadexOptions.syncOptions(v);
+    opt.params = createUrl.params;
 
     // Grab the information, if none, stop everything
     let sheetArr = await fetchSheet(opt);
@@ -457,29 +551,13 @@ const masterlist = async (v) => {
     opt.arr = sheetArr;
 
     // If it's a gallery, build the gallery
-    if (!createUrl.params.has(opt.cardKey)) createGallery(opt);
-    else {
+    if (!opt.params.has(opt.pageKey)) {
 
+        let gallery = createGallery(opt)
 
-        // Filter out the right card
-        let currCardKey = urlParams.has(cardKey) ? cardKey : cardKeyAlt;
-        let singleCard = sheetArray.filter((i) => i[currCardKey].includes(urlParams.get(currCardKey)))[0];
-
-        // Grab the log sheet and render log
-        let logArray = await fetchSheet(charadexInfo.logSheetPage);
-        getLog(logArray, singleCard);
-
-        // List.js options
-        let itemOptions = {
-            valueNames: createListKeys(sheetArray),
-            item: 'charadex-card',
-        };
-
-        // Render the prev/next links on profiles
-        prevNextLinks(sheetArray, pageUrl, preParam, urlParams, currCardKey, cardKey);
-
-        // Render card
-        let charadexItem = new List("charadex-gallery", itemOptions, singleCard);
+    } else { 
+        
+        let card = createCard(opt);
 
     }
 
@@ -590,7 +668,7 @@ const inventory = async (options) => {
     } else {
 
         // Show pagination
-        showPagination(sheetArray, charadexInfo.itemAmount);
+        createPagination(sheetArray, charadexInfo.itemAmount);
 
         // Create the Gallery
         let galleryOptions = {
