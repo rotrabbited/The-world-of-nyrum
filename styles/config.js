@@ -1,150 +1,233 @@
 /* ------------------------------------------------------------------- */
-/* Sheet ID
-/* Your sheet ID
-/* ------------------------------------------------------------------- */
-let sheetID = "1GwgfLizD3HQCieGia6di-TfU4E3EipT9Jb0BDZQwNak";
+/* Site Options
+/* -------------------------------------------------------------------  /
 
+  These generally don't need to be touched other than the SheetID
 
-/* ------------------------------------------------------------------- */
-/* All sheet pages
-/* ------------------------------------------------------------------- */
-let sheetPages = {
-
-    masterlist: "masterlist",
-    masterlistLog: "masterlist log",
-    inventory: "inventory",
-    inventoryLog: "inventory log",
-    items: "items",
-    traits: "traits",
-    prompts: "prompts",
-    faq: "faq",
-    staff: "mods",
-
-}
-
+  If you would like to update the univerial options in initial,
+  like having all pages have 24 items, you can do so here
 
 /* ------------------------------------------------------------------- */
-/* All Site Options
-/* ------------------------------------------------------------------- */
-let options = {
+const charadexOptions = {
 
-
-    /* Index
+    /* Default Options
     /* --------------------------------------------------------------- */
-    index: {
+    initial: {
 
-        promptSheetPage: sheetPages.prompts,
-        numOfPrompts: 3,
+        // Sheetpage will always be needed
+        sheetVersion: '1.5.0',
+        sheetID: "1GwgfLizD3HQCieGia6di-TfU4E3EipT9Jb0BDZQwNak",
+        sheetPage: 'masterlist',
 
-        staffSheetPage: sheetPages.staff,
-        numOfStaff: 8,
+        // Dex Type
+        // Full dex means a dex with a gallery and a single
+        // card - a full dex alwys needs a page key
+        // A page key will be the col used to pick out the
+        // design
+        fullDex: true,
+        pageKey: 'design',
 
-        masterlistSheetPage: sheetPages.masterlist,
-        numOfDesigns: 4,
-    
+        // Pagination
+        // This is just the pagination for the gallery
+        pagination: true,
+        itemAmount: 12,
+        itemOrder: "asc",
+
+        // Faux Folders
+        // Folder col should be the column you'd like the 
+        // folder to sort by
+        fauxFolders: false,
+        fauxFoldersCol: {},
+
+        // Filters 
+        filters: false,
+        filterOptions: {},
+
+        // Search
+        search: false,
+        searchParams: {},
+
+        // List.js
+        listItem: 'charadex-entries',
+        listClass: '',
+        listContainer: 'charadex-gallery'
+
+    },
+
+
+
+    /* Page Names 
+    /* --------------------------------------------------------------- */
+    pages: {
+
+        masterlist: "masterlist",
+        masterlistLog: "masterlist log",
+        inventory: "inventory",
+        inventoryLog: "inventory log",
+        items: "items",
+        traits: "traits",
+        prompts: "prompts",
+        faq: "faq",
+        staff: "mods"
+
+    },
+
+
+
+    /* Homepage
+    /* --------------------------------------------------------------- */
+    get index() {
+        return {
+
+            promptSheetPage: this.pages.prompts,
+            numOfPrompts: 3,
+
+            staffSheetPage: this.pages.staff,
+            numOfStaff: 8,
+
+            masterlistSheetPage: this.pages.masterlist,
+            numOfDesigns: 4,
+
+        }
     },
 
 
     /* Masterlist
     /* --------------------------------------------------------------- */
-    masterlist: {
+    get masterlist() {
+        return {
 
-        sheetPage: sheetPages.masterlist,
-        logSheetPage: sheetPages.masterlistLog,
+            sheetPage: this.pages.masterlist,
+            logPage: this.pages.masterlistLog,
 
-        itemAmount: 12,
-        itemOrder: "asc",
+            pageKey: 'design',
 
-        filterColumn: 'Design Type',
-        searchFilterParams: ['ID', 'Owner', 'Designer', 'Artist'],
-        fauxFolderColumn: 'Species',
+            pagination: true,
+            itemAmount: 12,
+            itemOrder: "asc",
 
+            fauxFolders: true,
+            fauxFoldersCol: {
+                'Species' : ['All', 'Dog', 'Cat', 'Bunny']
+            },
+
+            filters: true,
+            filterOptions: {
+                'Design Type': ['All', 'Official', 'Guest', 'MYO']
+            },
+
+            search: true,
+            searchParams: ['All', 'ID', 'Owner', 'Designer', 'Artist'],
+
+        }
     },
 
 
     /* Item Catalogue
     /* --------------------------------------------------------------- */
-    items: {
+    get items() {
+        return {
 
-        sheetPage: sheetPages.items,
-    
-        itemAmount: 24,
-        itemOrder: "asc",
-    
-        filterColumn: 'Rarity',
-        searchFilterParams: ['Item'],
-        fauxFolderColumn: 'Type',
-    
+            sheetPage: this.pages.items,
+
+            itemAmount: 24,
+            itemOrder: "asc",
+
+            filterColumn: 'Rarity',
+            searchFilterParams: ['Item'],
+            fauxFolderColumn: 'Type',
+
+        }
     },
 
 
-    /* Invetory
+    /* Inventory
     /* --------------------------------------------------------------- */
-    inventory: {
+    get inventory() {
+        return {
 
-        sheetPage: sheetPages.inventory,
-        itemSheetPage: sheetPages.items,
-        logSheetPage: sheetPages.inventoryLog,
-    
-        itemAmount: 24,
-        sortTypes: ['Currency', 'MYO Slot', 'Pet', 'Trait', 'Misc'],
-        
-        searchFilterParams: ['Username'],
-    
+            sheetPage: this.pages.inventory,
+            itemSheetPage: this.pages.items,
+            logSheetPage: this.pages.inventoryLog,
+
+            itemAmount: 24,
+            sortTypes: ['Currency', 'MYO Slot', 'Pet', 'Trait', 'Misc'],
+
+            searchFilterParams: ['Username'],
+
+        }
     },
 
 
     /* Prompts
     /* --------------------------------------------------------------- */
-    prompts: {
-    
-        sheetPage: sheetPages.prompts,
+    get prompts() {
+        return {
 
-        itemAmount: 24,
-        itemOrder: "desc",
+            sheetPage: this.pages,
 
-        searchFilterParams: ['Title'],
-    
+            itemAmount: 24,
+            itemOrder: "desc",
+
+            searchFilterParams: ['Title'],
+
+        }
     },
 
 
     /* Traits
     /* --------------------------------------------------------------- */
-    traits: {
-    
-        sheetPage: sheetPages.traits,
+    get traits() {
+        return {
 
-        itemAmount: 24,
-        itemOrder: "asc",
+            sheetPage: this.pages,
 
-        filterColumn: 'Rarity',
-        searchFilterParams: ['Trait'],
-        fauxFolderColumn: 'Type',
-    
+            itemAmount: 24,
+            itemOrder: "asc",
+
+            filterColumn: 'Rarity',
+            searchFilterParams: ['Trait'],
+            fauxFolderColumn: 'Type',
+
+        }
     },
 
 
     /* Staff
     /* --------------------------------------------------------------- */
-    staff: {
-    
-        sheetPage: sheetPages.staff,
-    
+    get staff() {
+        return {
+
+            sheetPage: this.pages,
+
+        }
     },
 
 
     /* FAQ
     /* --------------------------------------------------------------- */
-    faq: {
-    
-        sheetPage: sheetPages.faq,
-    
-        itemAmount: 24,
-        itemOrder: "asc",
-    
-        searchFilterParams: ['Tags'],
-    
+    get faq() {
+        return {
+
+            sheetPage: this.pages,
+
+            itemAmount: 24,
+            itemOrder: "asc",
+
+            searchFilterParams: ['Tags'],
+
+        }
     },
 
+    
+    /* Sync Options
+    /* Sync up the options and allow you to set your own if needed
+    /* --------------------------------------------------------------- */
+    syncOptions(o) {
+
+        if (typeof o == 'string') return { ...this.initial, ...this[o] }
+        if (typeof o == 'object') return { ...this.initial, ...o }
+
+    },
 
 }

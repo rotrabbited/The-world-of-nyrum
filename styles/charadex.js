@@ -1,452 +1,465 @@
 /* ==================================================================== */
-/* URLs
+/* Debug
+=======================================================================  /
+
+    This is for me to help you!
+    
+
 ======================================================================= */
-let url = new URL(window.location.href);
-let baseURL = window.location.origin + window.location.pathname;
-let folderURL = window.location.origin + '/' + window.location.pathname.replace(/\/[^\/]+$/, "");
-let urlParams = new URLSearchParams(window.location.search);
+const cheeDebug = {
+
+}
+
+
 
 
 /* ==================================================================== */
 /* Load Header and Footer
 ======================================================================= */
 $(function () {
-    $(".load-html").each(function () {$(this).load(this.dataset.source)});
+    $(".load-html").each(function () { $(this).load(this.dataset.source) });
 });
 
 
+
 /* ==================================================================== */
-/* Clean Sheet Data
+/* URLs
+=======================================================================  /
+
+    You can use this method to grab these URLs at any time
+
+    console.log(createUrl.fullUrl);
+    console.log(createUrl.addParams(createUrl.pageUrl, {'design': 'CHA0001'}));
+    
 ======================================================================= */
-const scrubData = (sheetData) => {
+    
+    const createUrl = {
 
-    cleanJson = JSON.parse(sheetData.substring(47).slice(0, -2));
+        fullUrl: new URL(window.location.href).href,
+        params: new URLSearchParams(window.location.search),
 
-    // Grab column headers
-    const col = [];
-    if (cleanJson.table.cols[0].label) {
-        cleanJson.table.cols.forEach((headers) => {
-            if (headers.label) {
-                col.push(headers.label.toLowerCase().replace(/\s/g, ""));
+        set pageUrl(page) {
+            return `${this.fullUrl.replace(/\/[^\/]+$/, "")}/${page}`;
+        },
+
+        get noParams() {
+            return this.fullUrl.split('?')[0];
+        },
+
+        addParams(url, obj) {
+
+            // Make the object into some cute params
+            let params = '';
+            for (let k in obj) params += `&${scrub(k)}=${scrub(obj[k])}`;
+
+            //If the URL doesn't have parameters, we need to
+            // changed the first & into a ? so the parameters work
+            if (!url.includes('?')) params = '?' + params.substring(1);
+
+            return url + params;
+
+        }
+
+    }
+
+
+
+/* ==================================================================== */
+/* Get Sheet Data
+=======================================================================  /
+
+    
+    
+
+======================================================================= */
+
+    const fetchSheet = async (opt) => {
+
+        // Some checks
+        if (!opt.sheetID) return alert('Sheet ID not added.');
+        if (!opt.sheetPage) return alert('There is no sheet page.');
+
+        // Build the sheet link and fetch the data
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${opt.sheetID}/gviz/tq?tqx=out:json&headers=1&tq=WHERE A IS NOT NULL&sheet=${opt.sheetPage}`;
+
+        // Try to fetch the data
+        const sheetData = await fetch(sheetUrl).then((response) => {
+            if (response.ok) return response.text();
+            Promise.reject(response);
+        }).catch((e) => {
+            if (e) return false;
+        });
+
+        // If there's data, return it
+        if (sheetData || !['[]', '{}'].includes(sheetData)) return scrubData(sheetData, opt);
+
+        // Else let them know something's wrong
+        alert('No sheet information was found. Please make sure your sheet is public.');
+        return false;
+
+    };
+
+
+    const scrubData = (data, opt) => {
+
+        // Parse through it and remove the nasty bits
+        const parsedJSON = JSON.parse(data.substring(47).slice(0, -2));
+
+        // Grab column headers
+        const col = [];
+        if (parsedJSON.table.cols[0].label) {
+            parsedJSON.table.cols.forEach((headers) => { if (headers.label) col.push(scrub(headers.label)); });
+        }
+
+        // Scrubs columns and puts them in a readable object
+        const scrubbedData = [];
+        parsedJSON.table.rows.forEach((info, num) => {
+            const row = {};
+            const isBoolean = val => 'boolean' === typeof val;
+            col.forEach((ele, ind) => {
+                row[ele] = info.c[ind] != null ? info.c[ind].f != null && !isBoolean(info.c[ind].v) ? info.c[ind].f : info.c[ind].v != null ? info.c[ind].v : "" : "";
+            });
+            scrubbedData.push(row);
+        });
+
+        // Get rid of anything that needs to be hidden
+        let publicData = scrubbedData.filter((i) => {
+            return i['hide'] !== true;
+        });
+
+        // Add the card link
+        if (opt.fullDex && opt.pageKey) {
+            for (var i in publicData) {
+                publicData[i].cardlink = createUrl.addParams(createUrl.noParams,{[opt.pageKey]:publicData[i][opt.pageKey]});
             }
-        });
-    }
+        }
 
-    // Scrubs columns and puts them in a readable object
-    const scrubbedData = [];
-    cleanJson.table.rows.forEach((info, num) => {
-        const row = {};
-        const isBoolean = val => 'boolean' === typeof val;
-        col.forEach((ele, ind) => {
-            row[ele] = info.c[ind] != null ? info.c[ind].f != null && !isBoolean(info.c[ind].v) ? info.c[ind].f : info.c[ind].v != null ? info.c[ind].v : "" : "";
-        });
-        scrubbedData.push(row);
-    });
-
-    let publicData = scrubbedData.filter((i) => { return i['hide'] !== true; });
-
-    return publicData;
-
-}
-
-
-/* ================================================================ */
-/* Sort Options
-/* ================================================================ */
-let optionSorter = (options) => {
-
-    // Clean up the sheetID - in case they used a link instead
-    let scrubbedSheetId = sheetID ? sheetID.includes('/d/') ? sheetID.split('/d/')[1].split('/edit')[0] : sheetID : "1l_F95Zhyj5OPQ0zs-54pqacO6bVDiH4rlh16VhPNFUc";
-
-    // Call all options, make defaults of our own
-    let userOptions = options;
-    let defaultOptions = {
-
-        sheetID: scrubbedSheetId,
-        sheetPage: userOptions.sheetPage ? userOptions.sheetPage : "masterlist",
-
-        fauxFolderColumn: userOptions.fauxFolderColumn ? keyCreator(userOptions.fauxFolderColumn) : false,
-        filterColumn: userOptions.filterColumn ? keyCreator(userOptions.filterColumn) : false,
-        searchFilterParams: userOptions.searchFilterParams ? addAll(userOptions.searchFilterParams) : false,
+        return publicData;
 
     }
 
-    // Merge options
-    let mergedOptions = {...userOptions, ...defaultOptions};
-
-    return mergedOptions;
-
-}
 
 
 /* ================================================================ */
 /* QOL Funcs
 /* ================================================================ */
-let sheetPage = (id, pageName) => {
-    return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&headers=1&tq=WHERE A IS NOT NULL&sheet=${pageName}`
-};
 
-let fetchSheet = async (page, sheet = sheetID) => {
-    const JSON = await fetch(sheetPage(sheet, page)).then(i => i.text());
-    return scrubData(JSON);
-}
+    // Just makes everything easier to compare
+    const scrub = (key) => {
+        return key.toString().toLowerCase().replace(/\s/g, "");
+    };
 
-let keyCreator = (key) => {
-    return key.toLowerCase().replace(/\s/g, "");
-};
+    // Makes your params into options
+    const addFilterOptions = (opt) => {
+        let select = [];
+        opt.forEach((v) => {select.push($("<option></option>").val(scrub(v)).html(v))});
+        return select;
+    };
 
-let addAll = (key) => {
-    key.unshift("All")
-    return key;
-};
 
-let addOptions = (arr, filter) => {
-    arr.forEach((val) => {
-        let optionHTML = document.createElement('option');
-        optionHTML.value = val.toLowerCase().replace(/\s/g, "");
-        optionHTML.textContent = val;
-        filter.append(optionHTML);
-    });
-};
+    const keyValCheck = (k, v) => {
+        return scrub(k) === scrub(v);
+    }
 
-let loadPage = () => {
-    $('#loading').hide();
-    $('.softload').addClass('active');
-}
+    const addAll = (key) => {
+        key.unshift("All")
+        return key;
+    };
 
-let urlParamFix = (key, folder, params = urlParams) => {
-    return '?' + (url.search.includes(folder) ? folder + '=' + params.get(folder) + '&' : '') + `${key}=`;
-};
+    const loadPage = () => {
+        $('#loading').hide();
+        $('.softload').addClass('active');
+    };
+
 
 
 /* ================================================================ */
-/* Get a card's log
+/* Create ListJS Keys
+/* If your keys has image or link in the name, it'll make them
+/* into a special key so you dont have to
 /* ================================================================ */
-let getLog = (log, item, key = 'id') => {
-    if ($("#log-table").length != 0) {
+    
+    let createListKeys = (arr, card = false) => {
 
-        let logArr = [];
-        log.forEach((i) => {
-            if (i[key].toLowerCase() === item[key].toLowerCase()) {
-                let newLog = {
-                    timestamp: i.timestamp,
-                    reason: i.reason,
-                };
-                logArr.push(newLog);
+        let itemArray = card ? Object.keys(arr) : Object.keys(arr[0]);
+        let itemArrayLength = itemArray.length;
+
+        let newArray = [];
+        for (let i = 0; i < itemArrayLength; i++) {
+            if (itemArray[i].includes('image')) {
+                newArray[itemArray.indexOf(itemArray[i])] = { name: itemArray[i], attr: 'src' };
+            } else if (itemArray[i].includes('link')) {
+                newArray[itemArray.indexOf(itemArray[i])] = { name: itemArray[i], attr: 'href' }
+            } else {
+                newArray[i] = itemArray[i];
             };
-        });
+        }
 
-        // Create Rows
-        let rows = [];
-        logArr.forEach((i) => {
-            let HTML = $("#log-entry").clone();
-            HTML.find(".timestamp").html(i.timestamp);
-            HTML.find(".reason").html(i.reason);
-            rows.push(HTML);
-        });
+        return newArray;
 
-        $("#log-table").html(rows);
+    };
+
+
+
+/* ================================================================ */
+/* Create ListJS Options
+/* Because we don't want to repeat them everytime
+/* ================================================================ */
+
+    const createListOptions = (opt) => {
+
+        let options = {
+            item: opt.listItem,
+            valueNames: createListKeys(opt.arr),
+        }
+
+        if (opt.search) {
+            options.searchColumns = opt.searchFilterParams;
+        }
+
+        if (opt.pagination) {
+            options.page = opt.itemAmount;
+            options.pagination = [{
+                innerWindow: 1,
+                left: 1,
+                right: 1,
+                item: `<li class='page-item'><a class='page page-link'></a></li>`,
+                paginationClass: 'pagination-top',
+            }];
+        }
+
+        return options;
 
     }
-}
-
-
-/* ================================================================ */
-/* Get Keys
-/* Makes an array for List.js to use
-/* ================================================================ */
-let sheetArrayKeys = (arr) => {
-    let itemArray = Object.keys(arr[0]);
-    if (itemArray.indexOf('cardlink')) itemArray[itemArray.indexOf('cardlink')] = { name: 'cardlink', attr: 'href' };
-    if (itemArray.indexOf('cardlinkalt')) itemArray[itemArray.indexOf('cardlinkalt')] = { name: 'cardlinkalt', attr: 'href' };
-    if (itemArray.indexOf('link')) itemArray[itemArray.indexOf('link')] = { name: 'link', attr: 'href' };
-    if (itemArray.indexOf('image')) itemArray[itemArray.indexOf('image')] = { name: 'image', attr: 'src' };
-    return itemArray;
-};
 
 
 /* ================================================================ */
 /* Pagination
 /* ================================================================ */
-let showPagination = (arr, amt) => {
-    $('.btn-next').on('click', () => { $('.pagination .active').next().children('a')[0].click(); })
-    $('.btn-prev').on('click', () => { $('.pagination .active').prev().children('a')[0].click(); })
-    if (arr.length > amt) $('#charadex-pagination').show()
-}
 
+    const showPagination = (opt) => {
 
-/* ================================================================ */
-/* Search Filter
-/* ================================================================ */
-let charadexSearch = (info, searchArr) => {
+        $('.btn-next').on('click', () => {$('.pagination .active').next().children('a')[0].click()})
+        $('.btn-prev').on('click', () => {$('.pagination .active').prev().children('a')[0].click()})
 
-    if (searchArr && searchArr.length > 2) {
-        addOptions(searchArr, $('#search-filter'));
-        $('#search-filter').parent().show();
-        $('#search').addClass('filtered');
+        if (opt.arr.length > opt.itemAmount) $('#charadex-pagination').show()
+
     }
 
-    let arr = searchArr.map(function (v) { return v.toLowerCase().replace(/\s/g, ""); });
-
-    $('#search').on('keyup', () => {
-        let selection = $("#search-filter option:selected").val();
-        let searchString = $('#search').val();
-        if (selection && selection != 'all') {
-            info.search(searchString, [selection]);
-        } else {
-            info.search(searchString, arr);
-        }
-    });
-
-    $('#charadex-filters').show();
-
-};
 
 
+/* ================================================================ */
+/* Faux Folders Creator
+/* ================================================================ */
+
+    const createFauxFolders = (opt) => {
+
+        // Pull our keys and array
+        let key = Object.keys(opt.fauxFoldersCol)[0];
+        let arr = opt.fauxFoldersCol[key];
+        key = scrub(key); // we're gonna go ahead and scrub it now
+        
+        // Create the buttons
+        let buttons = [];
+        arr.forEach((i) => {
+            let butCol = $('#charadex-filter-buttons').clone();
+            butCol.find('.btn').text(i).attr("href", createUrl.addParams(createUrl.noParams,{[key]:i}));
+            buttons.push(butCol);
+        });
+
+        // Append them to the row and show them 
+        $('#filter-buttons .row').append(buttons);
+        $('#filter-buttons').show();
+        
+        // Attempt to filter the array
+        let params = createUrl.params;
+        let filArr = opt.arr.filter((i) => scrub(i[key]) === params.get(key));
+
+        // If it filters everything out we're just going to
+        // return the original array
+        return filArr.length ? filArr : opt.arr;
+
+    };
 
 /* ================================================================ */
 /* Custom Filter
 /* ================================================================ */
-let charadexFilterSelect = (info, arr, key) => {
-    if (key) {
 
-        const filterArr = [...new Set(arr.map(i => i[key]))];
+    const createfilterSelections = (opt) => {
 
-        if (filterArr.length > 2) {
+        /*$('.search-params').each(function () {
+            $(this).on('change', function () {
+                if ($(this).val()) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set($(this).attr('name'), $(this).val());
+                    window.location.search = urlParams;
 
-            addOptions(addAll(filterArr), $('#filter'));
-
-            $("#filter").on('change', () => {
-                let selection = $("#filter option:selected").text().toLowerCase();
-                if (selection && !selection.includes('all')) {
-                    info.filter(function (i) { return i.values()[key].toLowerCase() == selection; });
-                } else {
-                    info.filter();
                 }
             });
-
-            $('#filter').parent().show();
-            $('#charadex-filters').show();
-
-        }
-    }
-};
-
-
-
-/* ================================================================ */
-/* Faux Folder Function
-/* ================================================================ */
-let fauxFolderButtons = (array, fauxFolder, params = urlParams) => {
-
-    if (array[0].hasOwnProperty(fauxFolder)) {
-
-        // Creates Param Object Array
-        let urlParamArray = [];
-        const uniqueArray = [...new Set(array.map(i => i[fauxFolder]))].filter(n => n);
-        uniqueArray.forEach((i) => {
-            urlParamArray.push($('#charadex-filter-buttons a').clone().text(i).attr("href", baseURL + '?' + fauxFolder + '=' + i.toLowerCase()));
         });
 
-        if (urlParamArray.length > 1) {
+        let filter = Object.fromEntries(new URLSearchParams(location.search));
 
-            // Adds All button
-            urlParamArray.unshift($('#charadex-filter-buttons a').text('All').attr("href", baseURL));
-
-            // Smacks the links in your flex column
-            let btnCols = [];
-            for (var i in urlParamArray) { btnCols.push($('#charadex-filter-buttons').html(urlParamArray[i]).clone()); }
-            $('#filter-buttons .row').append(btnCols);
-
-            // Show Buttons
-            $('#filter-buttons').show();
-
+        for (var key in filter) {
+            $(`.search-params[name='${key}']`).val(filter[key]).prop('selected', true);
         }
 
+        arr = arr.filter(function (item) {
+            for (var key in filter) {
+                if (item[key] === undefined || scrub(item[key]) != scrub(filter[key]) && scrub(filter[key]) !== "all")
+                    return false;
+            }
+            return true;
+        });
+
+        return arr;*/
+
     }
+    
 
-    // Filters out information based on URL parameters
-    if (params.has(fauxFolder) && fauxFolder) {
-        return array.filter((i) => i[fauxFolder].toLowerCase() === params.get(fauxFolder).toLowerCase());
-    } else {
-        return array;
-    }
+/* ================================================================ */
+/* Search Filter
+/* Since the search is a built in function for List.JS it's
+/* gon b a lil funkii
+/* ================================================================ */
 
-};
+    let createSearch = (dex, opt) => {
 
+        let arr = opt.searchParams.map(function(v){return scrub(v)});
+
+        if (opt.searchParams && opt.searchParams.length > 1) {
+            $('#search-filter').append(addFilterOptions(opt.searchParams));
+            $('#search-filter').parent().show();
+            $('#search').addClass('filtered');
+        }
+
+        $('#search').on('keyup', () => {
+            let selection = $("#search-filter option:selected").val();
+            let searchString = $('#search').val();
+            if (selection && selection != 'all') {
+                dex.search(searchString, [selection]);
+            } else {
+                dex.search(searchString, arr);
+            }
+        });
+
+        $('#charadex-filters').show();
+
+    };
 
 
 
 /* ================================================================ */
 /* Prev and Next Links
 /* ================================================================ */
-let prevNextLinks = (array, url, params, currParam, key, altkey = false) => {
-    if ($("#entryPrev").length != 0) {
 
-        let index = array.map(function (i) {return i[key];}).indexOf(currParam.get(key));
-        let leftItem = array[index - 1];
-        let rightItem = array[index + 1];
-
-        // Basically a special declaration for the masterlist
-        let chooseKey = altkey ? altkey : key;
-
+    const prevNextLinks = (opt) => {
+    
+        if ($("#entryPrev").length == 0) return;
+    
+        let index = arr.map(function (i) { return i[key] }).indexOf(card[key]);
+    
+        let leftItem = arr[index - 1] ? arr[index - 1][key] : false;
+        let rightItem = arr[index + 1] ? arr[index + 1][key] : false;
+    
         // Prev
         if (leftItem) {
-            $("#entryPrev").attr("href", url + params + leftItem[chooseKey]);
-            $("#entryPrev span").text(leftItem[chooseKey]);
+            $("#entryPrev").attr("href", addUrlParams(key, leftItem));
+            $("#entryPrev span").text(leftItem);
         } else {
-            $("#entryPrev i").remove();
+            $("#entryPrev").hide();
         }
-
+    
         // Next
         if (rightItem) {
-            $("#entryNext").attr("href", url + params + rightItem[chooseKey]);
-            $("#entryNext span").text(rightItem[chooseKey]);
+            $("#entryNext").attr("href", addUrlParams(key, rightItem));
+            $("#entryNext span").text(rightItem);
         } else {
-            $("#entryNext i").remove();
+            $("#entryNext").hide();
         }
-
+    
         // Back to masterlist (keeps species parameter)
-        $("#masterlistLink").attr("href", url);
         $('#prevNext').show();
-
-    }
-};
-
-
-/* ==================================================================== */
-/* Charadex w/ Gallery and Cards
-======================================================================= */
-const charadexLarge = async (options) => {
-
-    // Sort through options
-    const charadexInfo = optionSorter(options);
-
-    // Grab the sheet
-    let sheetArray = await fetchSheet(charadexInfo.sheetPage);
-
-    // Grab all our url info
-    let cardKey = Object.keys(sheetArray[0])[0];
-    let preParam = urlParamFix(cardKey, charadexInfo.fauxFolderColumn);
-
-    // Create faux folders
-    // Filter through array based on folders
-    if (charadexInfo.fauxFolderColumn) sheetArray = fauxFolderButtons(sheetArray, charadexInfo.fauxFolderColumn);
-
-    // Reverse based on preference
-    charadexInfo.itemOrder == 'asc' ? sheetArray.reverse() : '';
-
-    // Add card links to the remaining array
-    for (var i in sheetArray) { sheetArray[i].cardlink = baseURL + preParam + sheetArray[i][cardKey]; }
-
-    // Decide if the url points to profile or entire gallery
-    if (urlParams.has(cardKey)) {
-
-        // Render the prev/next links on profiles
-        prevNextLinks(sheetArray, baseURL, preParam, urlParams, cardKey);
-
-        // List.js options
-        let itemOptions = {
-            valueNames: sheetArrayKeys(sheetArray),
-            item: 'charadex-card',
-        };
-
-        // Filter out the right card
-        let singleCard = sheetArray.filter((i) => i[cardKey].includes(urlParams.get(cardKey)))[0];
-
-        // Render card
-        let charadexItem = new List("charadex-gallery", itemOptions, singleCard);
-
-
-    } else {
-
-
-        // Create the Gallery
-
-        let galleryOptions = {
-            item: 'charadex-entries',
-            valueNames: sheetArrayKeys(sheetArray),
-            searchColumns: charadexInfo.searchFilterParams,
-            page: charadexInfo.itemAmount,
-            pagination: [{
-                innerWindow: 1,
-                left: 1,
-                right: 1,
-                item: `<li class='page-item'><a class='page page-link'></a></li>`,
-                paginationClass: 'pagination-top',
-            }],
-        };
-
-        // Render Gallery
-        let charadex = new List('charadex-gallery', galleryOptions, sheetArray);
-
-        // Make filters workie
-        charadexFilterSelect(charadex, sheetArray, charadexInfo.filterColumn);
-        charadexSearch(charadex, charadexInfo.searchFilterParams);
-
-        // Show pagination
-        showPagination(sheetArray, charadexInfo.itemAmount);
-
-    }
-
-};
-
-
-/* ==================================================================== */
-/* Charadex w/ just Gallery
-======================================================================= */
-const charadexSmall = async (options) => {
-
-    // Sort through options
-    const charadexInfo = optionSorter(options);
-
-    // Grab the sheet
-    let sheetArray = await fetchSheet(charadexInfo.sheetPage);
-
-    // Create the Gallery
-    let galleryOptions = {
-        item: 'charadex-entries',
-        valueNames: sheetArrayKeys(sheetArray),
+    
     };
 
-    // Render Gallery
-    let charadex = new List('charadex-gallery', galleryOptions, sheetArray);
 
-};
+/* ================================================================ */
+/* Create gallery based on prefence
+/* ================================================================ */
+
+    const createGallery = (opt) => {
+
+        // Create faux folders if needed
+        if (opt.fauxFolders) opt.arr = createFauxFolders(opt);
+
+        // Create pagination if needed
+        if (opt.pagination) showPagination(opt);
+
+        // Create Gallery
+        let dex = new List(opt.listContainer, createListOptions(opt), opt.arr);
+    
+        // If there's a search, let it search
+        if (opt.search) createSearch(dex, opt);
+    
+    }
 
 
+
+/* ================================================================ */
+/* Get a card's log
+/* ================================================================ */
+
+    let getLog = (log, item, key = 'id') => {
+        if ($("#log-table").length != 0) {
+
+            let logArr = [];
+            log.forEach((i) => {
+                if (i[key].toLowerCase() === item[key].toLowerCase()) {
+                    let newLog = {
+                        timestamp: i.timestamp,
+                        reason: i.reason,
+                    };
+                    logArr.push(newLog);
+                };
+            });
+
+            // Create Rows
+            let rows = [];
+            logArr.forEach((i) => {
+                let HTML = $("#log-entry").clone();
+                HTML.find(".timestamp").html(i.timestamp);
+                HTML.find(".reason").html(i.reason);
+                rows.push(HTML);
+            });
+
+            $("#log-table").html(rows);
+
+        }
+    }
+
+
+    
 /* ==================================================================== */
 /* Masterlist Only
 ======================================================================= */
-const masterlist = async (options) => {
+const masterlist = async (v) => {
 
-    // Sort through options
-    const charadexInfo = optionSorter(options);
+    // Grab our options
+    const opt = charadexOptions.syncOptions(v);
 
-    // Grab the sheet
-    let sheetArray = await fetchSheet(charadexInfo.sheetPage);
+    // Grab the information, if none, stop everything
+    let sheetArr = await fetchSheet(opt);
+    if (!sheetArr) return;
 
-    // Grab all our url info
-    let cardKey = Object.keys(sheetArray[0])[3];
-    let cardKeyAlt = Object.keys(sheetArray[0])[0];
+    // Now we're going to add the Array to our options so 
+    // we can access data way easier
+    opt.arr = sheetArr;
 
-    let preParam = urlParamFix(cardKey, charadexInfo.fauxFolderColumn);
+    // If it's a gallery, build the gallery
+    if (!createUrl.params.has(opt.cardKey)) createGallery(opt);
+    else {
 
-    // Create faux folders
-    // Filter through array based on folders
-    if (charadexInfo.fauxFolderColumn) sheetArray = fauxFolderButtons(sheetArray, charadexInfo.fauxFolderColumn);
-
-    // Reverse based on preference
-    charadexInfo.itemOrder == 'asc' ? sheetArray.reverse() : '';
-
-    // Add card links to the remaining array
-    for (var i in sheetArray) { 
-        sheetArray[i].cardlink = baseURL + preParam + sheetArray[i][cardKey]; 
-        sheetArray[i].cardlinkalt = baseURL + urlParamFix(cardKeyAlt, charadexInfo.fauxFolderColumn) + sheetArray[i][Object.keys(sheetArray[0])[0]]; 
-    }
-
-    // Decide if the url points to profile or entire gallery
-    if (urlParams.has(cardKey) || urlParams.has(cardKeyAlt)) {
 
         // Filter out the right card
         let currCardKey = urlParams.has(cardKey) ? cardKey : cardKeyAlt;
@@ -458,44 +471,15 @@ const masterlist = async (options) => {
 
         // List.js options
         let itemOptions = {
-            valueNames: sheetArrayKeys(sheetArray),
+            valueNames: createListKeys(sheetArray),
             item: 'charadex-card',
         };
 
         // Render the prev/next links on profiles
-        prevNextLinks(sheetArray, baseURL, preParam, urlParams, currCardKey, cardKey);
+        prevNextLinks(sheetArray, pageUrl, preParam, urlParams, currCardKey, cardKey);
 
         // Render card
         let charadexItem = new List("charadex-gallery", itemOptions, singleCard);
-
-
-    } else {
-
-        // Show pagination
-        showPagination(sheetArray, charadexInfo.itemAmount);
-
-        // Create the Gallery
-        let galleryOptions = {
-            item: 'charadex-entries',
-            valueNames: sheetArrayKeys(sheetArray),
-            searchColumns: charadexInfo.searchFilterParams,
-            page: charadexInfo.itemAmount,
-            pagination: [{
-                innerWindow: 1,
-                left: 1,
-                right: 1,
-                item: `<li class='page-item'><a class='page page-link'></a></li>`,
-                paginationClass: 'pagination-top',
-            }],
-        };
-
-        // Render Gallery
-        let charadex = new List('charadex-gallery', galleryOptions, sheetArray);
-
-        // Make filters workie
-        charadexFilterSelect(charadex, sheetArray, charadexInfo.filterColumn);
-        charadexSearch(charadex, charadexInfo.searchFilterParams);
-
 
     }
 
@@ -521,7 +505,7 @@ const inventory = async (options) => {
     sheetArray.sort((a, b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase()));
 
     // Add card links to the remaining array
-    for (var i in sheetArray) { sheetArray[i].cardlink = baseURL + preParam + sheetArray[i][cardKey]; }
+    for (var i in sheetArray) { sheetArray[i].cardlink = pageUrl + preParam + sheetArray[i][cardKey]; }
 
     // Decide if the url points to profile or entire gallery
     if (urlParams.has(cardKey)) {
@@ -532,7 +516,7 @@ const inventory = async (options) => {
 
         // List.js options
         let itemOptions = {
-            valueNames: sheetArrayKeys(sheetArray),
+            valueNames: createListKeys(sheetArray),
             item: 'charadex-card',
         };
 
@@ -611,7 +595,7 @@ const inventory = async (options) => {
         // Create the Gallery
         let galleryOptions = {
             item: 'charadex-entries',
-            valueNames: sheetArrayKeys(sheetArray),
+            valueNames: createListKeys(sheetArray),
             searchColumns: [cardKey],
             page: charadexInfo.itemAmount,
             pagination: [{
@@ -627,7 +611,7 @@ const inventory = async (options) => {
         let charadex = new List('charadex-gallery', galleryOptions, sheetArray);
 
         // Make filters workie
-        charadexSearch(charadex, [cardKey]);
+        createSearch(charadex, [cardKey]);
 
 
     }
@@ -646,34 +630,34 @@ const frontPage = (options) => {
     // Events
     let addEvents = async () => {
         if ($("#prompt-gallery").length != 0) {
-            if ( charadexInfo.numOfPrompts != 0) {
+            if (charadexInfo.numOfPrompts != 0) {
 
                 // Grab dah sheet
                 let events = await fetchSheet(charadexInfo.promptSheetPage);
                 let cardKey = Object.keys(events[0])[0];
-    
+
                 // Sort by End Date
                 let newestEvents = events.sort(function (a, b) {
                     var c = new Date(a.enddate);
                     var d = new Date(b.enddate);
                     return d - c;
                 });
-    
+
                 // Show x Amount on Index
                 let indexEvents = newestEvents.slice(0, charadexInfo.numOfPrompts);
-    
+
                 // Add card link
                 for (var i in indexEvents) { indexEvents[i].cardlink = folderURL + "prompts.html?" + cardKey + "=" + indexEvents[i][cardKey]; }
-    
+
                 // Nyoom
                 let galleryOptions = {
                     item: 'prompt-item',
-                    valueNames: sheetArrayKeys(indexEvents),
+                    valueNames: createListKeys(indexEvents),
                 };
-    
+
                 // Render Gallery
                 let charadex = new List('prompt-gallery', galleryOptions, indexEvents);
-    
+
             } else {
                 $("#prompt-gallery").hide();
             }
@@ -694,7 +678,7 @@ const frontPage = (options) => {
                 // Nyoom
                 let galleryOptions = {
                     item: 'staff-item',
-                    valueNames: sheetArrayKeys(indexMods),
+                    valueNames: createListKeys(indexMods),
                 };
 
                 // Render Gallery
@@ -724,7 +708,7 @@ const frontPage = (options) => {
                 // Nyoom
                 let galleryOptions = {
                     item: 'design-item',
-                    valueNames: sheetArrayKeys(selectDesigns),
+                    valueNames: createListKeys(selectDesigns),
                 };
 
                 // Render Gallery
@@ -736,10 +720,10 @@ const frontPage = (options) => {
         }
     }; addDesigns();
 
-}; 
+};
 
 
 /* ==================================================================== */
 /* Softload pages
 ======================================================================= */
-$(window).on('pageshow',function(){loadPage()});
+$(window).on('pageshow', function () { loadPage() });
